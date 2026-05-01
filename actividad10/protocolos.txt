@@ -1,0 +1,2 @@
+INS;9383;REG-789;aumentar radiacion;1.0
+RAD;88912;REG-998;disminuir radiacion;3.0
