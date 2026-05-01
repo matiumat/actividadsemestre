@@ -2,472 +2,260 @@ package co.edu.poli.contexto4.controlador;
 
 import co.edu.poli.contexto4.modelo.*;
 import co.edu.poli.contexto4.servicios.ImplementacionOperacionCRUD;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.*;
 
 import java.io.IOException;
-import java.util.Scanner;
+import java.net.URL;
+import java.util.Optional;
+import java.util.ResourceBundle;
 
-/**
- * Controlador principal del sistema de gestión de protocolos espaciales.
- * Presenta un menú interactivo por consola para realizar operaciones CRUD
- * (Crear, Leer, Modificar, Eliminar) sobre protocolos, además de
- * serialización y deserialización en archivo plano.
- *
- * @author Equipo Contexto 4
- * @version 1.0
- */
-public class PrimaryController {
+public class PrimaryController implements Initializable {
 
-    // ---------------------------------------------------------------
-    // Objetos base reutilizados en la creación de protocolos
-    // ---------------------------------------------------------------
-    private static final Sensor SENSOR_1 =
-            new Sensor("SEN-001", "Titanio", "Blanco", 5.5, 0.3);
-    private static final Sensor SENSOR_2 =
-            new Sensor("SEN-002", "Aluminio", "Gris", 4.0, 0.2);
-    private static final Radiacion RAD_ALTA =
-            new Radiacion(2.5, "ALTO", "Gamma", "Alta", "Solar");
-    private static final Radiacion RAD_BAJA =
-            new Radiacion(0.05, "BAJO", "Alpha", "Baja", "Cosmica");
-    private static final Mitigacion MIT_1 =
-            new Mitigacion("MIT-001", "Blindaje reforzado", 1, "Modulo A", RAD_ALTA);
+    private static final String TIPO_INS = "ProtocoloInsuficiencia";
+    private static final String TIPO_RAD = "ProtocoloRadiacion";
 
-    // ---------------------------------------------------------------
-    // Utilitarios de impresión
-    // ---------------------------------------------------------------
+    private static final Sensor    SENSOR_1 = new Sensor("SEN-001", "Titanio", "Blanco", 5.5, 0.3);
+    private static final Radiacion RAD_ALTA = new Radiacion(2.5,  "ALTO", "Gamma", "Alta",  "Solar");
+    private static final Radiacion RAD_BAJA = new Radiacion(0.05, "BAJO", "Alpha", "Baja",  "Cosmica");
+    private static final Mitigacion MIT_1   = new Mitigacion("MIT-001", "Blindaje reforzado", 1, "Modulo A", RAD_ALTA);
 
-    /** Imprime separador simple. */
-    private static void separador() {
-        System.out.println("-------------------------------------------------------------");
+    @FXML private ComboBox<String> cmbTipo;
+    @FXML private TextField        txtId;
+    @FXML private TextField        txtRegistro;
+    @FXML private TextArea         txtInstrucciones;
+    @FXML private TextField        txtLimites;
+    @FXML private TextField        txtBuscarId;
+
+    @FXML private TableView<ProtocoloFila>               tablaProtocolos;
+    @FXML private TableColumn<ProtocoloFila, String>     colIndice;
+    @FXML private TableColumn<ProtocoloFila, String>     colTipo;
+    @FXML private TableColumn<ProtocoloFila, String>     colId;
+    @FXML private TableColumn<ProtocoloFila, String>     colRegistro;
+    @FXML private TableColumn<ProtocoloFila, String>     colInstrucciones;
+    @FXML private TableColumn<ProtocoloFila, String>     colLimites;
+
+    @FXML private Label lblEstado;
+
+    private final ImplementacionOperacionCRUD crud = new ImplementacionOperacionCRUD();
+    private final ObservableList<ProtocoloFila> filas = FXCollections.observableArrayList();
+
+    @Override
+    public void initialize(URL url, ResourceBundle rb) {
+        cmbTipo.setItems(FXCollections.observableArrayList(TIPO_INS, TIPO_RAD));
+        cmbTipo.setValue(TIPO_INS);
+
+        colIndice.setCellValueFactory(d -> d.getValue().indice);
+        colTipo.setCellValueFactory(d -> d.getValue().tipo);
+        colId.setCellValueFactory(d -> d.getValue().codigo);
+        colRegistro.setCellValueFactory(d -> d.getValue().registro);
+        colInstrucciones.setCellValueFactory(d -> d.getValue().instrucciones);
+        colLimites.setCellValueFactory(d -> d.getValue().limites);
+
+        tablaProtocolos.setItems(filas);
+
+        tablaProtocolos.getSelectionModel().selectedItemProperty().addListener(
+            (obs, prev, sel) -> {
+                if (sel != null) {
+                    cmbTipo.setValue(sel.tipo.get());
+                    txtId.setText(sel.codigo.get());
+                    txtRegistro.setText(sel.registro.get());
+                    txtInstrucciones.setText(sel.instrucciones.get());
+                    txtLimites.setText(sel.limites.get());
+                }
+            });
+
+        actualizarEstado();
     }
 
-    /** Imprime separador grueso. */
-    private static void separadorGrueso() {
-        System.out.println("=============================================================");
-    }
-
-    /**
-     * Imprime el estado completo del arreglo del CRUD.
-     *
-     * @param crud Instancia de ImplementacionOperacionCRUD.
-     */
-    private static void imprimirArreglo(ImplementacionOperacionCRUD crud) {
-        Protocolo[] arr = crud.getArreglo_protocolos();
-        System.out.println("  Estado del arreglo [tamaño=" + arr.length + "]:");
-        for (int i = 0; i < arr.length; i++) {
-            if (arr[i] != null) {
-                System.out.println("    [" + i + "] "
-                        + arr[i].getClass().getSimpleName()
-                        + " | numero_id='" + arr[i].getCodigo() + "'"
-                        + " | instrucciones='" + arr[i].getInstrucciones() + "'");
-            } else {
-                System.out.println("    [" + i + "] -- vacío (null) --");
-            }
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // Menú principal
-    // ---------------------------------------------------------------
-
-    /** Muestra el menú principal. */
-    private static void mostrarMenu() {
-        separadorGrueso();
-        System.out.println("   SISTEMA DE GESTIÓN DE PROTOCOLOS ESPACIALES");
-        separadorGrueso();
-        System.out.println("  1. CREAR   protocolo");
-        System.out.println("  2. LEER    protocolo por índice");
-        System.out.println("  3. LEER    todos los protocolos");
-        System.out.println("  4. BUSCAR  protocolo por numero_id");
-        System.out.println("  5. MODIFICAR protocolo por numero_id");
-        System.out.println("  6. ELIMINAR  protocolo por numero_id");
-        separador();
-        System.out.println("  7. SERIALIZAR   (guardar en archivo .txt)");
-        System.out.println("  8. DESERIALIZAR (cargar desde archivo .txt)");
-        separador();
-        System.out.println("  9. VER estado del arreglo");
-        System.out.println("  0. SALIR");
-        separadorGrueso();
-        System.out.print("  Seleccione una opción: ");
-    }
-
-    // ---------------------------------------------------------------
-    // Submenús CRUD
-    // ---------------------------------------------------------------
-
-    /**
-     * Solicita datos al usuario y crea un protocolo.
-     *
-     * @param crud    Instancia del CRUD.
-     * @param scanner Scanner para leer entrada.
-     * @throws Exception 
-     */
-    private static void menuCrear(ImplementacionOperacionCRUD crud, Scanner scanner) throws Exception {
-        separadorGrueso();
-        System.out.println("  CREAR PROTOCOLO");
-        separador();
-
-        System.out.println("  Tipo de protocolo:");
-        System.out.println("    1. ProtocoloInsuficiencia");
-        System.out.println("    2. ProtocoloRadiacion");
-        System.out.print("  Seleccione tipo: ");
-        String opTipo = scanner.nextLine().trim();
-
-        if (!opTipo.equals("1") && !opTipo.equals("2")) {
-            System.out.println("  ERROR: Tipo inválido. Debe ser 1 o 2.");
+    @FXML
+    private void onCreate() {
+        int numero_id;
+        try {
+            numero_id = Integer.parseInt(txtId.getText().trim());
+        } catch (NumberFormatException e) {
+            alerta("Error", "El Numero ID debe ser un numero entero.");
             return;
         }
+        try {
+            info(crud.crear(construir(numero_id)));
+            actualizarTabla();
+            actualizarEstado();
+            onLimpiar();
+        } catch (Exception e) {
+            alerta("Error al crear", e.getMessage());
+        }
+    }
 
-        System.out.print("  numero_id (entero, ej: 101): ");
-        String entradaId = scanner.nextLine().trim();
+    @FXML
+    private void onModificar() {
+        ProtocoloFila sel = tablaProtocolos.getSelectionModel().getSelectedItem();
+        if (sel == null) { alerta("Modificar", "Selecciona un protocolo en la tabla."); return; }
 
         int numero_id;
         try {
-            numero_id = Integer.parseInt(entradaId);
+            numero_id = Integer.parseInt(txtId.getText().trim());
         } catch (NumberFormatException e) {
-            System.out.println("  ERROR: numero_id inválido. '" + entradaId
-                    + "' no es un número entero.");
+            alerta("Error", "El Numero ID debe ser un numero entero.");
             return;
         }
-
-        System.out.print("  Registro: ");
-        String registro = scanner.nextLine().trim();
-        System.out.print("  Instrucciones: ");
-        String instrucciones = scanner.nextLine().trim();
-        System.out.print("  Límites (ej: 1.0 Sv): ");
-        String limites = scanner.nextLine().trim();
-
-        Protocolo nuevo;
-        if (opTipo.equals("1")) {
-            nuevo = new ProtocoloInsuficiencia(numero_id, registro, instrucciones,
-                    limites, MIT_1, SENSOR_1, RAD_BAJA);
-        } else {
-            nuevo = new ProtocoloRadiacion(numero_id, registro, instrucciones,
-                    limites, MIT_1, SENSOR_1, RAD_ALTA);
-        }
-
         try {
-            String resultado = crud.crear(nuevo);
-            separador();
-            System.out.println("  " + resultado);
-        } catch (IOException e) {
-            System.out.println("  ERROR [CREAR]: " + e.getMessage());
+            info(crud.modificar(Integer.parseInt(sel.indice.get()), construir(numero_id)));
+            actualizarTabla();
+            actualizarEstado();
+            onLimpiar();
+        } catch (Exception e) {
+            alerta("Error al modificar", e.getMessage());
         }
     }
 
-    /**
-     * Lee un protocolo por su índice.
-     *
-     * @param crud    Instancia del CRUD.
-     * @param scanner Scanner para leer entrada.
-     * @throws Exception 
-     */
-    private static void menuLeerPorIndice(ImplementacionOperacionCRUD crud, Scanner scanner) throws Exception {
-        separadorGrueso();
-        System.out.println("  LEER PROTOCOLO POR ÍNDICE");
-        separador();
+    @FXML
+    private void onEliminar() {
+        ProtocoloFila sel = tablaProtocolos.getSelectionModel().getSelectedItem();
+        if (sel == null) { alerta("Eliminar", "Selecciona un protocolo en la tabla."); return; }
 
-        System.out.print("  Ingrese el índice: ");
-        String entrada = scanner.nextLine().trim();
-        int indice;
-        try {
-            indice = Integer.parseInt(entrada);
-        } catch (NumberFormatException e) {
-            System.out.println("  ERROR: Debe ingresar un número entero válido.");
-            return;
-        }
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+            "¿Eliminar protocolo ID=" + sel.codigo.get() + "?", ButtonType.OK, ButtonType.CANCEL);
+        confirm.setTitle("Confirmar eliminacion");
+        confirm.setHeaderText(null);
+        Optional<ButtonType> res = confirm.showAndWait();
 
-        try {
-            Protocolo p = crud.leer(indice);
-            separador();
-            System.out.println("  Tipo        : " + p.getClass().getSimpleName());
-            System.out.println("  Información : " + p.leer_informacion());
-            System.out.println("  Descripción : " + p.obtener_descripcion_protocolo());
-        } catch (IOException e) {
-            System.out.println("  ERROR [LEER]: " + e.getMessage());
+        if (res.isPresent() && res.get() == ButtonType.OK) {
+            try {
+                info(crud.eliminar(Integer.parseInt(sel.indice.get())));
+                actualizarTabla();
+                actualizarEstado();
+                onLimpiar();
+            } catch (Exception e) {
+                alerta("Error al eliminar", e.getMessage());
+            }
         }
     }
 
-    /**
-     * Muestra todos los protocolos almacenados.
-     *
-     * @param crud Instancia del CRUD.
-     * @throws Exception 
-     */
-    private static void menuLeerTodos(ImplementacionOperacionCRUD crud) throws Exception {
-        separadorGrueso();
-        System.out.println("  TODOS LOS PROTOCOLOS");
-        separador();
-
-        try {
-            Protocolo[] todos = crud.leerTodos();
-            for (int i = 0; i < todos.length; i++) {
-                if (todos[i] != null) {
-                    System.out.println("  [" + i + "] " + todos[i].leer_informacion());
-                } else {
-                    System.out.println("  [" + i + "] -- vacío (null) --");
+    @FXML
+    private void onBuscar() {
+        String entrada = txtBuscarId.getText().trim();
+        int idx = crud.buscarIndicePorCodigo(entrada);
+        if (idx >= 0) {
+            for (ProtocoloFila f : filas) {
+                if (f.indice.get().equals(String.valueOf(idx))) {
+                    tablaProtocolos.getSelectionModel().select(f);
+                    tablaProtocolos.scrollTo(f);
+                    return;
                 }
             }
-        } catch (IOException e) {
-            System.out.println("  ERROR [LEER TODOS]: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Busca un protocolo por su numero_id.
-     *
-     * @param crud    Instancia del CRUD.
-     * @param scanner Scanner para leer entrada.
-     * @throws Exception 
-     */
-    private static void menuBuscarPorCodigo(ImplementacionOperacionCRUD crud, Scanner scanner) throws Exception {
-        separadorGrueso();
-        System.out.println("  BUSCAR PROTOCOLO POR numero_id");
-        separador();
-
-        System.out.print("  Ingrese el numero_id a buscar: ");
-        String entrada = scanner.nextLine().trim();
-
-        int idx = crud.buscarIndicePorCodigo(entrada);
-        separador();
-        if (idx >= 0) {
-            try {
-                Protocolo p = crud.leer(idx);
-                System.out.println("  Encontrado en posición [" + idx + "]");
-                System.out.println("  Tipo        : " + p.getClass().getSimpleName());
-                System.out.println("  Información : " + p.leer_informacion());
-                System.out.println("  Descripción : " + p.obtener_descripcion_protocolo());
-            } catch (IOException e) {
-                System.out.println("  ERROR [BUSCAR]: " + e.getMessage());
-            }
         } else {
-            System.out.println("  No se encontró protocolo con numero_id '" + entrada + "'.");
+            alerta("Buscar", "No se encontro protocolo con ID: " + entrada);
         }
     }
 
-    /**
-     * Modifica un protocolo buscado por su numero_id.
-     *
-     * @param crud    Instancia del CRUD.
-     * @param scanner Scanner para leer entrada.
-     * @throws Exception 
-     */
-    private static void menuModificar(ImplementacionOperacionCRUD crud, Scanner scanner) throws Exception {
-        separadorGrueso();
-        System.out.println("  MODIFICAR PROTOCOLO POR numero_id");
-        separador();
-
-        System.out.print("  Ingrese el numero_id del protocolo a modificar: ");
-        String idBuscar = scanner.nextLine().trim();
-
-        int idx = crud.buscarIndicePorCodigo(idBuscar);
-        if (idx < 0) {
-            System.out.println("  ERROR: No se encontró protocolo con numero_id '"
-                    + idBuscar + "'.");
-            return;
-        }
-
+    @FXML
+    private void onSerializar() {
         try {
-            System.out.println("  Protocolo encontrado: "
-                    + crud.leer(idx).leer_informacion());
+            info(crud.serializar());
         } catch (IOException e) {
-            System.out.println("  ERROR: " + e.getMessage());
-            return;
-        }
-
-        separador();
-        System.out.println("  Ingrese los nuevos datos:");
-
-        System.out.println("  Tipo:");
-        System.out.println("    1. ProtocoloInsuficiencia");
-        System.out.println("    2. ProtocoloRadiacion");
-        System.out.print("  Seleccione tipo: ");
-        String opTipo = scanner.nextLine().trim();
-        if (!opTipo.equals("1") && !opTipo.equals("2")) {
-            System.out.println("  ERROR: Tipo inválido.");
-            return;
-        }
-
-        System.out.print("  Nuevo numero_id (entero): ");
-        String entradaId = scanner.nextLine().trim();
-        int nuevoId;
-        try {
-            nuevoId = Integer.parseInt(entradaId);
-        } catch (NumberFormatException e) {
-            System.out.println("  ERROR: numero_id inválido.");
-            return;
-        }
-
-        System.out.print("  Nuevo registro: ");
-        String nuevoRegistro = scanner.nextLine().trim();
-        System.out.print("  Nuevas instrucciones: ");
-        String nuevasInstrucciones = scanner.nextLine().trim();
-        System.out.print("  Nuevos límites: ");
-        String nuevosLimites = scanner.nextLine().trim();
-
-        Protocolo nuevoProtocolo;
-        if (opTipo.equals("1")) {
-            nuevoProtocolo = new ProtocoloInsuficiencia(nuevoId, nuevoRegistro,
-                    nuevasInstrucciones, nuevosLimites, MIT_1, SENSOR_1, RAD_BAJA);
-        } else {
-            nuevoProtocolo = new ProtocoloRadiacion(nuevoId, nuevoRegistro,
-                    nuevasInstrucciones, nuevosLimites, MIT_1, SENSOR_1, RAD_ALTA);
-        }
-
-        try {
-            String resultado = crud.modificar(idx, nuevoProtocolo);
-            separador();
-            System.out.println("  " + resultado);
-        } catch (IOException e) {
-            System.out.println("  ERROR [MODIFICAR]: " + e.getMessage());
+            alerta("Error de archivo", e.getMessage());
+        } catch (Exception e) {
+            alerta("Error al serializar", e.getMessage());
         }
     }
 
-    /**
-     * Elimina un protocolo buscado por su numero_id.
-     *
-     * @param crud    Instancia del CRUD.
-     * @param scanner Scanner para leer entrada.
-     * @throws Exception 
-     */
-    private static void menuEliminar(ImplementacionOperacionCRUD crud, Scanner scanner) throws Exception {
-        separadorGrueso();
-        System.out.println("  ELIMINAR PROTOCOLO POR numero_id");
-        separador();
-
-        System.out.print("  Ingrese el numero_id del protocolo a eliminar: ");
-        String idBuscar = scanner.nextLine().trim();
-
-        int idx = crud.buscarIndicePorCodigo(idBuscar);
-        if (idx < 0) {
-            System.out.println("  ERROR: No se encontró protocolo con numero_id '"
-                    + idBuscar + "'.");
-            return;
-        }
-
-        try {
-            System.out.println("  Protocolo encontrado: "
-                    + crud.leer(idx).leer_informacion());
-        } catch (IOException e) {
-            System.out.println("  ERROR: " + e.getMessage());
-            return;
-        }
-
-        System.out.print("  ¿Confirmar eliminación? (s/n): ");
-        String confirmacion = scanner.nextLine().trim();
-        separador();
-
-        if (confirmacion.equalsIgnoreCase("s")) {
-            try {
-                System.out.println("  " + crud.eliminar(idx));
-            } catch (IOException e) {
-                System.out.println("  ERROR [ELIMINAR]: " + e.getMessage());
-            }
-        } else {
-            System.out.println("  Operación cancelada.");
-        }
-    }
-
-    /**
-     * Serializa el arreglo al archivo protocolos.txt.
-     *
-     * @param crud Instancia del CRUD.
-     * @throws Exception 
-     */
-    private static void menuSerializar(ImplementacionOperacionCRUD crud) throws Exception {
-        separadorGrueso();
-        System.out.println("  SERIALIZAR — Guardar protocolos en archivo .txt");
-        separador();
-
-        try {
-            System.out.println("  " + crud.serializar());
-        } catch (IOException e) {
-            System.out.println("  ERROR [SERIALIZAR]: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Deserializa los protocolos desde protocolos.txt.
-     *
-     * @param crud Instancia del CRUD.
-     */
-    private static void menuDeserializar(ImplementacionOperacionCRUD crud) {
-        separadorGrueso();
-        System.out.println("  DESERIALIZAR — Cargar protocolos desde archivo .txt");
-        separador();
-
+    @FXML
+    private void onDeserializar() {
         try {
             Protocolo[] cargados = crud.deserializar();
-            if (cargados.length == 0) {
-                System.out.println("  No se cargaron protocolos.");
-                return;
-            }
-            System.out.println("  Protocolos cargados desde archivo:");
-            for (int i = 0; i < cargados.length; i++) {
-                if (cargados[i] != null) {
-                    System.out.println("    [" + i + "] "
-                            + cargados[i].getClass().getSimpleName()
-                            + " | " + cargados[i].leer_informacion());
+            for (Protocolo p : cargados) {
+                if (p != null && crud.buscarIndicePorCodigo(p.getCodigo()) < 0) {
+                    try { crud.crear(p); } catch (Exception ignored) {}
                 }
             }
+            actualizarTabla();
+            actualizarEstado();
+            info("Deserializado correctamente.");
         } catch (IOException e) {
-            System.out.println("  ERROR [DESERIALIZAR]: " + e.getMessage());
+            alerta("Error de archivo", "No se pudo leer protocolos.txt.\n" + e.getMessage());
         }
     }
 
-    // ---------------------------------------------------------------
-    // Método principal
-    // ---------------------------------------------------------------
+    @FXML
+    private void onLimpiar() {
+        txtId.clear();
+        txtRegistro.clear();
+        txtInstrucciones.clear();
+        txtLimites.clear();
+        txtBuscarId.clear();
+        cmbTipo.setValue(TIPO_INS);
+        tablaProtocolos.getSelectionModel().clearSelection();
+    }
 
-    /**
-     * Ejecuta el menú interactivo por consola.
-     * @throws Exception 
-     */
-    public static void ejecutarMenu() throws Exception {
-        ImplementacionOperacionCRUD crud = new ImplementacionOperacionCRUD();
-        Scanner scanner = new Scanner(System.in);
-        String opcion;
+    // ── Helpers ──
 
-        separadorGrueso();
-        System.out.println("   BIENVENIDO AL SISTEMA DE GESTIÓN DE PROTOCOLOS");
-        System.out.println("   Contexto 4 — Protocolos Espaciales");
-        separadorGrueso();
+    private Protocolo construir(int numero_id) {
+        String registro      = txtRegistro.getText().trim();
+        String instrucciones = txtInstrucciones.getText().trim();
+        String limites       = txtLimites.getText().trim();
+        if (TIPO_INS.equals(cmbTipo.getValue()))
+            return new ProtocoloInsuficiencia(numero_id, registro, instrucciones, limites, MIT_1, SENSOR_1, RAD_BAJA);
+        else
+            return new ProtocoloRadiacion(numero_id, registro, instrucciones, limites, MIT_1, SENSOR_1, RAD_ALTA);
+    }
 
-        do {
-            mostrarMenu();
-            opcion = scanner.nextLine().trim();
+    private void actualizarTabla() {
+        filas.clear();
+        Protocolo[] arr = crud.getArreglo_protocolos();
+        for (int i = 0; i < arr.length; i++) {
+            if (arr[i] != null)
+                filas.add(new ProtocoloFila(
+                    String.valueOf(i),
+                    arr[i].getClass().getSimpleName(),
+                    arr[i].getCodigo(),
+                    nvl(arr[i].getRegistro()),
+                    nvl(arr[i].getInstrucciones()),
+                    nvl(arr[i].getLimites())
+                ));
+        }
+    }
 
-            switch (opcion) {
-                case "1": menuCrear(crud, scanner);           break;
-                case "2": menuLeerPorIndice(crud, scanner);   break;
-                case "3": menuLeerTodos(crud);                break;
-                case "4": menuBuscarPorCodigo(crud, scanner); break;
-                case "5": menuModificar(crud, scanner);       break;
-                case "6": menuEliminar(crud, scanner);        break;
-                case "7": menuSerializar(crud);               break;
-                case "8": menuDeserializar(crud);             break;
-                case "9":
-                    separadorGrueso();
-                    System.out.println("  VER ESTADO DEL ARREGLO");
-                    separador();
-                    imprimirArreglo(crud);
-                    break;
-                case "0":
-                    separadorGrueso();
-                    System.out.println("  Saliendo del sistema. Hasta luego.");
-                    separadorGrueso();
-                    break;
-                default:
-                    System.out.println("  ERROR: Opción inválida. Ingrese un número del 0 al 9.");
-                    break;
-            }
+    private void actualizarEstado() {
+        long ocupados = java.util.Arrays.stream(crud.getArreglo_protocolos())
+                .filter(p -> p != null).count();
+        lblEstado.setText("Tamaño arreglo: " + crud.getTamano() + "  |  Ocupados: " + ocupados);
+    }
 
-            if (!opcion.equals("0")) {
-                System.out.println("\n  Presione ENTER para continuar...");
-                scanner.nextLine();
-            }
+    private void alerta(String titulo, String msg) {
+        Alert a = new Alert(Alert.AlertType.ERROR);
+        a.setTitle(titulo);
+        a.setHeaderText(null);
+        a.setContentText(msg);
+        a.showAndWait();
+    }
 
-        } while (!opcion.equals("0"));
+    private void info(String msg) {
+        Alert a = new Alert(Alert.AlertType.INFORMATION);
+        a.setTitle("Info");
+        a.setHeaderText(null);
+        a.setContentText(msg);
+        a.showAndWait();
+    }
 
-        scanner.close();
+    private String nvl(String s) { return s != null ? s : ""; }
+
+    // ── Modelo de fila ──
+
+    public static class ProtocoloFila {
+        final SimpleStringProperty indice, tipo, codigo, registro, instrucciones, limites;
+        ProtocoloFila(String indice, String tipo, String codigo,
+                      String registro, String instrucciones, String limites) {
+            this.indice        = new SimpleStringProperty(indice);
+            this.tipo          = new SimpleStringProperty(tipo);
+            this.codigo        = new SimpleStringProperty(codigo);
+            this.registro      = new SimpleStringProperty(registro);
+            this.instrucciones = new SimpleStringProperty(instrucciones);
+            this.limites       = new SimpleStringProperty(limites);
+        }
     }
 }
