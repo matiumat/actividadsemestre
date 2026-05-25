@@ -4,64 +4,63 @@
 <?import javafx.scene.control.*?>
 <?import javafx.geometry.*?>
 
-<AnchorPane xmlns="http://javafx.com/javafx/17"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="co.edu.poli.contexto4.controlador.PrimaryController"
-            prefWidth="900" prefHeight="600">
+<VBox xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="co.edu.poli.contexto4.controlador.PrimaryController"
+      spacing="8" style="-fx-padding: 12;">
 
-    <VBox spacing="10" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="10"
-          AnchorPane.rightAnchor="10" AnchorPane.bottomAnchor="10">
+    <Label text="Gestion de Protocolos" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
 
-        <Label text="Gestión de Protocolos" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+    <!-- CAMPOS -->
+    <GridPane hgap="10" vgap="6">
 
-        <!-- Formulario -->
-        <GridPane hgap="10" vgap="8">
-            <Label text="Tipo:"           GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-            <ComboBox fx:id="cmbTipo"     GridPane.rowIndex="0" GridPane.columnIndex="1" prefWidth="220"/>
+        <Label text="Tipo:"            GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+        <ComboBox fx:id="cmbTipo"      GridPane.rowIndex="0" GridPane.columnIndex="1" prefWidth="200"/>
 
-            <Label text="Numero ID:"      GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-            <TextField fx:id="txtId"      GridPane.rowIndex="1" GridPane.columnIndex="1" prefWidth="220" promptText="ej: 101"/>
+        <Label text="Numero ID:"       GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <TextField fx:id="txtId"       GridPane.rowIndex="1" GridPane.columnIndex="1" prefWidth="200"/>
 
-            <Label text="Registro:"       GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-            <TextField fx:id="txtRegistro" GridPane.rowIndex="2" GridPane.columnIndex="1" promptText="ej: REG-001"/>
+        <Label text="Registro:"        GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+        <TextField fx:id="txtRegistro" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-            <Label text="Instrucciones:"  GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-            <TextArea fx:id="txtInstrucciones" GridPane.rowIndex="3" GridPane.columnIndex="1"
-                      prefRowCount="3" wrapText="true" promptText="Instrucciones..."/>
+        <Label text="Instrucciones:"   GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+        <TextArea fx:id="txtInstrucciones" GridPane.rowIndex="3" GridPane.columnIndex="1"
+                  prefRowCount="2" wrapText="true"/>
 
-            <Label text="Limites:"        GridPane.rowIndex="4" GridPane.columnIndex="0"/>
-            <TextField fx:id="txtLimites" GridPane.rowIndex="4" GridPane.columnIndex="1" promptText="ej: 1.0 Sv"/>
-        </GridPane>
+        <Label text="Limites:"         GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+        <TextField fx:id="txtLimites"  GridPane.rowIndex="4" GridPane.columnIndex="1"/>
 
-        <!-- Botones CRUD -->
-        <HBox spacing="8">
-            <Button text="Crear"      onAction="#onCreate"/>
-            <Button text="Modificar"  onAction="#onModificar"/>
-            <Button text="Eliminar"   onAction="#onEliminar"/>
-            <Button text="Limpiar"    onAction="#onLimpiar"/>
-            <Separator orientation="VERTICAL"/>
-            <TextField fx:id="txtBuscarId" promptText="Buscar por ID..." prefWidth="150"/>
-            <Button text="Buscar"     onAction="#onBuscar"/>
-            <Separator orientation="VERTICAL"/>
-            <Button text="Serializar"   onAction="#onSerializar"/>
-            <Button text="Deserializar" onAction="#onDeserializar"/>
-        </HBox>
+    </GridPane>
 
-        <!-- Tabla -->
-        <TableView fx:id="tablaProtocolos" VBox.vgrow="ALWAYS" maxHeight="Infinity">
-            <columns>
-                <TableColumn fx:id="colIndice"        text="IDX"           prefWidth="50"/>
-                <TableColumn fx:id="colTipo"          text="Tipo"          prefWidth="180"/>
-                <TableColumn fx:id="colId"            text="Numero ID"     prefWidth="90"/>
-                <TableColumn fx:id="colRegistro"      text="Registro"      prefWidth="100"/>
-                <TableColumn fx:id="colInstrucciones" text="Instrucciones" prefWidth="220"/>
-                <TableColumn fx:id="colLimites"       text="Limites"       prefWidth="90"/>
-            </columns>
-        </TableView>
+    <!-- BOTONES CRUD -->
+    <HBox spacing="8">
+        <Button text="Crear"     onAction="#onCreate"/>
+        <Button text="Modificar" onAction="#onModificar"/>
+        <Button text="Eliminar"  onAction="#onEliminar"/>
+        <Button text="Limpiar"   onAction="#onLimpiar"/>
+    </HBox>
 
-        <!-- Status -->
-        <Label fx:id="lblEstado" text="Tamaño: 2  |  Ocupados: 0"/>
+    <!-- BUSQUEDA Y ARCHIVO -->
+    <HBox spacing="8" alignment="CENTER_LEFT">
+        <TextField fx:id="txtBuscarId" promptText="Buscar por ID..." prefWidth="160"/>
+        <Button text="Buscar"        onAction="#onBuscar"/>
+        <Separator orientation="VERTICAL"/>
+        <Button text="Serializar"    onAction="#onSerializar"/>
+        <Button text="Deserializar"  onAction="#onDeserializar"/>
+    </HBox>
 
-    </VBox>
+    <!-- TABLA -->
+    <TableView fx:id="tablaProtocolos" VBox.vgrow="ALWAYS" maxHeight="Infinity">
+        <columns>
+            <TableColumn fx:id="colIndice"        text="IDX"           prefWidth="50"/>
+            <TableColumn fx:id="colTipo"          text="Tipo"          prefWidth="180"/>
+            <TableColumn fx:id="colId"            text="Numero ID"     prefWidth="90"/>
+            <TableColumn fx:id="colRegistro"      text="Registro"      prefWidth="100"/>
+            <TableColumn fx:id="colInstrucciones" text="Instrucciones" prefWidth="200"/>
+            <TableColumn fx:id="colLimites"       text="Limites"       prefWidth="90"/>
+        </columns>
+    </TableView>
 
-</AnchorPane>
+    <Label fx:id="lblEstado" text="Ocupados: 0  |  Tamaño: 2"/>
+
+</VBox>
